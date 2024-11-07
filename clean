@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# chek if current path is a git repo
+git rev-parse --is-inside-work-tree 1> /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  echo "There is no git repository in the current path."
+  exit
+fi
+
+# check if gum is present
+if ! command -v gum &> /dev/null; then
+  echo "This script requires gum (https://github.com/charmbracelet/gum)"
+  exit
+fi
+
+# list of merged branches
+merged=$(git branch --format="%(refname:short)" --merged)
+
+# remove "head" branch from list
+head=$(git branch -r | grep HEAD | awk -F / '{print $3}')
+merged=( "${merged[@]/$head/}") 
+
+if [ -z "$merged" ]; then
+  echo "There are no merged branches to be deleted."
+  exit
+fi
+
+branches=$( 
+  gum choose \
+    --header="Choose branches to delete:" \
+    --cursor-prefix="[] " \
+    --selected-prefix="[x] " \
+    --unselected-prefix="[] " \
+    --no-limit \
+    $merged
+)
+
+if [ -z "${branches}" ]; then
+  echo "No branch was selected."
+  exit 
+fi
+
+echo $branches | tr " " "\n" | while read branch
+do
+  git branch -d "$branch"
+done
